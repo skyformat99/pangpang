@@ -10,9 +10,9 @@ COBJ=$(patsubst %.c,%.o,$(CSRC))
 OBJ=$(CPPOBJ)
 OBJ+=$(COBJ)
 
-CFLAGS=
+CFLAGS=-std=c11 -O3 -Wall -Isrc/inc -Isrc/lib
 CXXFLAGS=-std=c++11 -O3 -Wall -Isrc/inc -Isrc/lib -Isrc/lib/MPFDParser-1.1.1 `pkg-config --cflags hiredis libevent_openssl openssl`
-LDLIBS=`pkg-config --libs hiredis libevent_openssl openssl` -lpcre -lz -lpthread -ldl
+LDLIBS=`pkg-config --libs hiredis libevent_openssl openssl` -lpcre -lz -lpthread -ldl -lstdc++ 
 
 PREFIX=/usr/local/pangpang
 
@@ -29,8 +29,8 @@ $(PROJECT):$(OBJ)
 
 
 clean:
-	@for i in $(OBJ);do echo $${i} ;done
-	rm -f $(PROJECT) $(OBJ)
+	@for i in $(OBJ);do echo "rm -f" $${i} && rm -f $${i} ;done
+	rm -f $(PROJECT)
 
 install:
 	test -d $(PREFIX) || mkdir -p $(PREFIX)

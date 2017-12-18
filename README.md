@@ -111,8 +111,8 @@ see `conf/pangpang.json` and `conf/pattern.conf`
     "timeout": 60,
     "gzip": {
         "enable": true,
-        "min_size": 1024,
-        "max_size": 2048,
+        "min_size": 51200,
+        "max_size": 307200,
         "level": -1
     },
     "session": {
@@ -121,6 +121,7 @@ see `conf/pangpang.json` and `conf/pattern.conf`
         "port": 6379,
         "expires": 600
     },
+    "log": true,
     "temp_directory": "temp",
     "route": [{
             "pattern": "hello",
@@ -134,11 +135,12 @@ see `conf/pangpang.json` and `conf/pattern.conf`
             "session": false,
             "header": false,
             "cookie": false,
-            "gzip": false
+            "gzip": false,
+            "log": false
         },
         {
             "pattern": "form",
-            "max_match_size": 3,
+            "max_match_size": 30,
             "module": "mod/form.so",
             "cache": {
                 "enable": false,
@@ -148,7 +150,8 @@ see `conf/pangpang.json` and `conf/pattern.conf`
             "session": false,
             "header": true,
             "cookie": true,
-            "gzip": false
+            "gzip": false,
+            "log": false
         },
         {
             "pattern": "session",
@@ -162,7 +165,8 @@ see `conf/pangpang.json` and `conf/pattern.conf`
             "session": true,
             "header": false,
             "cookie": true,
-            "gzip": false
+            "gzip": false,
+            "log": true
         }
     ],
     "static_server": {
