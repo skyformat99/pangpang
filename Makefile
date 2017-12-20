@@ -10,9 +10,9 @@ COBJ=$(patsubst %.c,%.o,$(CSRC))
 OBJ=$(CPPOBJ)
 OBJ+=$(COBJ)
 
-CFLAGS=-std=c11 -O3 -Wall -Isrc/inc -Isrc/lib
-CXXFLAGS=-std=c++11 -O3 -Wall -Isrc/inc -Isrc/lib -Isrc/lib/MPFDParser-1.1.1 `pkg-config --cflags hiredis libevent_openssl openssl`
-LDLIBS=`pkg-config --libs hiredis libevent_openssl openssl` -lpcre -lz -lpthread -ldl -lstdc++ 
+CFLAGS=-std=c11 -O3 -Wall -Isrc/inc -Isrc/lib `php-config --includes`
+CXXFLAGS=-std=c++11 -O3 -Wall -Isrc/inc -Isrc/lib -Isrc/lib/MPFDParser-1.1.1 `pkg-config --cflags hiredis libevent_openssl openssl` `php-config --includes`
+LDLIBS=`pkg-config --libs hiredis libevent_openssl openssl` -lphp7 -lpcre -lz -lpthread -ldl -lstdc++ 
 
 PREFIX=/usr/local/pangpang
 

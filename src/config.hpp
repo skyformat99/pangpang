@@ -47,6 +47,9 @@
 #include <map>
 #include <unordered_map>
 
+#include "lib/php-x/phpx.h"
+#include "lib/php-x/phpx_embed.h"
+
 
 #include "inc/request.hpp"
 #include "inc/response.hpp"
@@ -72,6 +75,7 @@
 #define LOGS_ACCESS_FILE        "logs/access.log"
 #define LOGS_ERROR_FILE         "logs/error.log"
 #define SESSION_ID_NAME         "SESSIONID"
+#define PHP_DIRECTORY           "php"
 
 namespace pangpang {
 
@@ -82,12 +86,17 @@ namespace pangpang {
         std::string content_type, content;
     };
 
+    enum application_t {
+        cpp, php, unkown
+    };
+
     struct route_ele_t {
         std::shared_ptr<hi::cregex> cregex;
         std::shared_ptr<hi::module_class<hi::servlet>> module;
         std::shared_ptr<hi::cache::lru_cache<std::string, cache_ele_t>> cache;
         size_t expires, max_match_size;
         bool session, gzip, header, cookie, log;
+        application_t app_t;
     };
 
     struct config {
@@ -99,7 +108,7 @@ namespace pangpang {
                 ENABLE_GZIP = true,
                 ENABLE_MULTIPROCESS = true,
                 CPU_AFFINITY = true,
-                ENABLE_LOG = FALSE;
+                ENABLE_LOG = false;
 
         int PORT = 9000, TIMEOUT = 60,
                 REDIS_PORT = 6379,
@@ -124,6 +133,8 @@ namespace pangpang {
         std::list<std::shared_ptr<route_ele_t>> PLUGIN;
         std::unordered_map<std::string, std::string> MIME;
         std::shared_ptr<hi::redis> REDIS;
+
+        std::shared_ptr<php::VM> PHP;
     };
 }
 

@@ -16,6 +16,8 @@ static inline bool initailize_config(const std::string& path);
 static inline void signal_normal_cb(int sig);
 static inline void generic_request_handler(struct evhttp_request *req, void *arg);
 
+static inline void request_cpp_handler(std::shared_ptr<pangpang::route_ele_t>& rtt, hi::request& req, hi::response& res);
+static inline void request_php_handler(std::shared_ptr<pangpang::route_ele_t>& rtt, hi::request& req, hi::response& res);
 
 static inline void *my_zeroing_malloc(size_t howmuch);
 static inline void ssl_setup();
@@ -174,6 +176,18 @@ static inline bool initailize_config(const std::string& path) {
                         tmp->log = item["log"].bool_value();
                         tmp->max_match_size = static_cast<size_t> (item["max_match_size"].int_value());
                         if (tmp->session&&!tmp->cookie)tmp->cookie = true;
+                        std::string app_t = item["application_type"].string_value();
+                        if (app_t == "cpp") {
+                            tmp->app_t = pangpang::application_t::cpp;
+                        } else if (app_t == "php") {
+                            tmp->app_t = pangpang::application_t::php;
+                            int argc = 1;
+                            char *argv[1];
+                            argv[0] = (char*) "1";
+                            PANGPANG_CONFIG.PHP = std::move(std::make_shared<php::VM>(argc, argv));
+                        } else {
+                            tmp->app_t = pangpang::application_t::unkown;
+                        }
                         PANGPANG_CONFIG.PLUGIN.push_back(std::move(tmp));
                     }
                 }
@@ -340,7 +354,7 @@ static inline void generic_request_handler(struct evhttp_request *ev_req, void *
                     if (cache_ele.gzip) {
                         const char *gzip_header = evhttp_find_header(ev_input_headers, "Accept-Encoding");
                         if (gzip_header && strstr(gzip_header, "gzip") != NULL) {
-                            res.headers.insert(std::make_pair("Content-Encoding", "gzip"));
+                            res.headers.insert(std::move(std::make_pair("Content-Encoding", "gzip")));
                             res.content = cache_ele.content;
                         } else {
                             res.content = std::move(gzip::decompress(cache_ele.content.c_str(), cache_ele.content.size()));
@@ -359,167 +373,172 @@ static inline void generic_request_handler(struct evhttp_request *ev_req, void *
                 }
             }
         }
-        auto instance = std::move(item->module->make_obj());
-        if (instance) {
-            req.client = ev_req->remote_host;
-            const char* param = evhttp_uri_get_query(ev_uri);
-            if (param) {
-                req.param = param;
+        req.client = ev_req->remote_host;
+        const char* param = evhttp_uri_get_query(ev_uri);
+        if (param) {
+            req.param = param;
+            struct evkeyvalq param_list;
+            evhttp_parse_query_str(param, &param_list);
+            for (struct evkeyval* p = param_list.tqh_first; p; p = p->next.tqe_next) {
+                req.form.insert(std::move(std::make_pair(p->key, p->value)));
+            }
+            evhttp_clear_headers(&param_list);
+        }
+
+        const char* user_agent = evhttp_find_header(ev_req->input_headers, "User-Agent");
+        req.user_agent = user_agent ? user_agent : std::move("xxx");
+
+        enum evhttp_cmd_type req_method = evhttp_request_get_command(ev_req);
+        switch (req_method) {
+            case EVHTTP_REQ_GET:req.method = std::move("GET");
+                break;
+            case EVHTTP_REQ_POST:req.method = std::move("POST");
+                break;
+            case EVHTTP_REQ_HEAD:req.method = std::move("HEAD");
+                break;
+            case EVHTTP_REQ_DELETE:req.method = std::move("DELETE");
+                break;
+            case EVHTTP_REQ_PUT:req.method = std::move("PUT");
+                break;
+            case EVHTTP_REQ_OPTIONS:req.method = std::move("OPTIONS");
+                break;
+            case EVHTTP_REQ_TRACE:req.method = std::move("TRACE");
+                break;
+            case EVHTTP_REQ_CONNECT:req.method = std::move("CONNECT");
+                break;
+            case EVHTTP_REQ_PATCH:req.method = std::move("PATCH");
+                break;
+            default:req.method = std::move("unknown");
+                break;
+        }
+        if (item->header) {
+            for (struct evkeyval *header = ev_input_headers->tqh_first; header; header = header->next.tqe_next) {
+                req.headers[header->key] = header->value;
+            }
+        }
+        if (item->cookie) {
+            const char* cookie = evhttp_find_header(ev_input_headers, "Cookie");
+            if (cookie)hi::parser_param(cookie, req.cookies, '&', '=');
+        }
+
+        const char* input_content_type = evhttp_find_header(ev_input_headers, "Content-Type");
+        if (input_content_type && req_method == EVHTTP_REQ_POST) {
+            struct evbuffer *buf = evhttp_request_get_input_buffer(ev_req);
+            size_t buf_size = evbuffer_get_length(buf);
+            char buf_data[buf_size + 1];
+            size_t n = evbuffer_remove(buf, buf_data, buf_size);
+            if (n > 0 && strcmp("application/x-www-form-urlencoded", input_content_type) == 0) {
                 struct evkeyvalq param_list;
-                evhttp_parse_query_str(param, &param_list);
+                evhttp_parse_query_str(buf_data, &param_list);
                 for (struct evkeyval* p = param_list.tqh_first; p; p = p->next.tqe_next) {
-                    req.form.insert(std::make_pair(p->key, p->value));
+                    req.form.insert(std::move(std::make_pair(p->key, p->value)));
                 }
                 evhttp_clear_headers(&param_list);
-            }
-
-            const char* user_agent = evhttp_find_header(ev_req->input_headers, "User-Agent");
-            req.user_agent = user_agent ? user_agent : std::move("xxx");
-
-            enum evhttp_cmd_type req_method = evhttp_request_get_command(ev_req);
-            switch (req_method) {
-                case EVHTTP_REQ_GET:req.method = std::move("GET");
-                    break;
-                case EVHTTP_REQ_POST:req.method = std::move("POST");
-                    break;
-                case EVHTTP_REQ_HEAD:req.method = std::move("HEAD");
-                    break;
-                case EVHTTP_REQ_DELETE:req.method = std::move("DELETE");
-                    break;
-                case EVHTTP_REQ_PUT:req.method = std::move("PUT");
-                    break;
-                case EVHTTP_REQ_OPTIONS:req.method = std::move("OPTIONS");
-                    break;
-                case EVHTTP_REQ_TRACE:req.method = std::move("TRACE");
-                    break;
-                case EVHTTP_REQ_CONNECT:req.method = std::move("CONNECT");
-                    break;
-                case EVHTTP_REQ_PATCH:req.method = std::move("PATCH");
-                    break;
-                default:req.method = std::move("unknown");
-                    break;
-            }
-            if (item->header) {
-                for (struct evkeyval *header = ev_input_headers->tqh_first; header; header = header->next.tqe_next) {
-                    req.headers[header->key] = header->value;
-                }
-            }
-            if (item->cookie) {
-                const char* cookie = evhttp_find_header(ev_input_headers, "Cookie");
-                if (cookie)hi::parser_param(cookie, req.cookies, '&', '=');
-            }
-
-            const char* input_content_type = evhttp_find_header(ev_input_headers, "Content-Type");
-            if (input_content_type && req_method == EVHTTP_REQ_POST) {
-                struct evbuffer *buf = evhttp_request_get_input_buffer(ev_req);
-                size_t buf_size = evbuffer_get_length(buf);
-                char buf_data[buf_size + 1];
-                size_t n = evbuffer_remove(buf, buf_data, buf_size);
-                if (n > 0 && strcmp("application/x-www-form-urlencoded", input_content_type) == 0) {
-                    struct evkeyvalq param_list;
-                    evhttp_parse_query_str(buf_data, &param_list);
-                    for (struct evkeyval* p = param_list.tqh_first; p; p = p->next.tqe_next) {
-                        req.form.insert(std::make_pair(p->key, p->value));
-                    }
-                    evhttp_clear_headers(&param_list);
-                } else if (n > 0 && strstr(input_content_type, "multipart/form-data")&&(is_dir(PANGPANG_CONFIG.TEMP_DIRECTORY)
-                        || mkdir(PANGPANG_CONFIG.TEMP_DIRECTORY.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0)) {
-                    try {
-                        std::shared_ptr<MPFD::Parser> POSTParser(new MPFD::Parser());
-                        POSTParser->SetTempDirForFileUpload(PANGPANG_CONFIG.TEMP_DIRECTORY);
-                        POSTParser->SetUploadedFilesStorage(MPFD::Parser::StoreUploadedFilesInFilesystem);
-                        POSTParser->SetMaxCollectedDataLength(PANGPANG_CONFIG.MAX_BODY_SIZE);
-                        POSTParser->SetContentType(input_content_type);
-                        POSTParser->AcceptSomeData(buf_data, n);
-                        auto fields = POSTParser->GetFieldsMap();
-                        for (auto &item : fields) {
-                            if (item.second->GetType() == MPFD::Field::TextType) {
-                                req.form.insert(std::make_pair(item.first, item.second->GetTextTypeContent()));
-                            } else {
-                                std::string upload_file_name = item.second->GetFileName(), ext;
-                                std::string::size_type p = upload_file_name.find_last_of(".");
-                                if (p != std::string::npos) {
-                                    ext = std::move(upload_file_name.substr(p));
-                                }
-                                std::string temp_file = PANGPANG_CONFIG.TEMP_DIRECTORY + "/" + random_string(req.client + item.second->GetFileName()).append(ext);
-                                rename(item.second->GetTempFileName().c_str(), temp_file.c_str());
-                                req.form.insert(std::make_pair(item.first, temp_file));
+            } else if (n > 0 && strstr(input_content_type, "multipart/form-data")&&(is_dir(PANGPANG_CONFIG.TEMP_DIRECTORY)
+                    || mkdir(PANGPANG_CONFIG.TEMP_DIRECTORY.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0)) {
+                try {
+                    std::shared_ptr<MPFD::Parser> POSTParser(new MPFD::Parser());
+                    POSTParser->SetTempDirForFileUpload(PANGPANG_CONFIG.TEMP_DIRECTORY);
+                    POSTParser->SetUploadedFilesStorage(MPFD::Parser::StoreUploadedFilesInFilesystem);
+                    POSTParser->SetMaxCollectedDataLength(PANGPANG_CONFIG.MAX_BODY_SIZE);
+                    POSTParser->SetContentType(input_content_type);
+                    POSTParser->AcceptSomeData(buf_data, n);
+                    auto fields = POSTParser->GetFieldsMap();
+                    for (auto &item : fields) {
+                        if (item.second->GetType() == MPFD::Field::TextType) {
+                            req.form.insert(std::move(std::make_pair(item.first, item.second->GetTextTypeContent())));
+                        } else {
+                            std::string upload_file_name = item.second->GetFileName(), ext;
+                            std::string::size_type p = upload_file_name.find_last_of(".");
+                            if (p != std::string::npos) {
+                                ext = std::move(upload_file_name.substr(p));
                             }
+                            std::string temp_file = PANGPANG_CONFIG.TEMP_DIRECTORY + "/" + random_string(req.client + item.second->GetFileName()).append(ext);
+                            rename(item.second->GetTempFileName().c_str(), temp_file.c_str());
+                            req.form.insert(std::move(std::make_pair(item.first, temp_file)));
                         }
-
-                    } catch (MPFD::Exception& err) {
-                        res.content = err.GetError();
-                        res.status = 500;
-                        goto done;
                     }
+
+                } catch (MPFD::Exception& err) {
+                    res.content = err.GetError();
+                    res.status = 500;
+                    goto done;
                 }
             }
-            if (item->max_match_size > 1) {
-                size_t cur_match = 0;
-                for (auto& match_item : matches) {
-                    req.form.insert(std::make_pair(std::move(std::string("\\").append(std::move(std::to_string(cur_match++)))), match_item));
-                }
+        }
+        if (item->max_match_size > 1) {
+            size_t cur_match = 0;
+            for (auto& match_item : matches) {
+                req.form.insert(std::move(std::make_pair(std::move(std::string("\\").append(std::move(std::to_string(cur_match++)))), match_item)));
             }
+        }
 
-            std::string SESSION_ID_VALUE;
-            if (item->session && PANGPANG_CONFIG.ENABLE_SESSION) {
-                auto session_id_value_iterator = req.cookies.find(SESSION_ID_NAME);
-                if (session_id_value_iterator != req.cookies.end()) {
-                    SESSION_ID_VALUE = session_id_value_iterator->second;
-                    if (!PANGPANG_CONFIG.REDIS->exists(SESSION_ID_VALUE)) {
-                        PANGPANG_CONFIG.REDIS->hset(SESSION_ID_VALUE, SESSION_ID_NAME, SESSION_ID_VALUE);
-                        PANGPANG_CONFIG.REDIS->expire(SESSION_ID_VALUE, PANGPANG_CONFIG.SESSION_EXPIRES);
-                        res.session[SESSION_ID_NAME] = SESSION_ID_VALUE;
-                    } else {
-                        PANGPANG_CONFIG.REDIS->hgetall(SESSION_ID_VALUE, req.session);
-                    }
+        std::string SESSION_ID_VALUE;
+        if (item->session && PANGPANG_CONFIG.ENABLE_SESSION) {
+            auto session_id_value_iterator = req.cookies.find(SESSION_ID_NAME);
+            if (session_id_value_iterator != req.cookies.end()) {
+                SESSION_ID_VALUE = session_id_value_iterator->second;
+                if (!PANGPANG_CONFIG.REDIS->exists(SESSION_ID_VALUE)) {
+                    PANGPANG_CONFIG.REDIS->hset(SESSION_ID_VALUE, SESSION_ID_NAME, SESSION_ID_VALUE);
+                    PANGPANG_CONFIG.REDIS->expire(SESSION_ID_VALUE, PANGPANG_CONFIG.SESSION_EXPIRES);
+                    res.session[SESSION_ID_NAME] = SESSION_ID_VALUE;
                 } else {
-                    std::string session_cookie_string(SESSION_ID_NAME);
-                    session_cookie_string.append("=")
-                            .append(random_string(req.client))
-                            .append(";Path=/;");
-                    const char* host = evhttp_uri_get_host(ev_uri);
-                    if (host) {
-                        session_cookie_string.append("Domain=").append(host);
-                    }
-                    evhttp_add_header(ev_output_headers, "Set-Cookie", session_cookie_string.c_str());
+                    PANGPANG_CONFIG.REDIS->hgetall(SESSION_ID_VALUE, req.session);
                 }
-            }
-
-            instance->handler(req, res);
-
-            bool gziped = false;
-            size_t content_len = res.content.size();
-            if (PANGPANG_CONFIG.ENABLE_GZIP && item->gzip && content_len >= PANGPANG_CONFIG.GZIP_MIN_SIZE && content_len <= PANGPANG_CONFIG.GZIP_MAX_SIZE) {
-                const char *gzip_header = evhttp_find_header(ev_input_headers, "Accept-Encoding");
-                if (gzip_header && strstr(gzip_header, "gzip") != NULL) {
-                    res.headers.insert(std::make_pair("Content-Encoding", "gzip"));
-                    res.content = std::move(gzip::compress(res.content.c_str(), content_len, PANGPANG_CONFIG.GZIP_LEVEL));
-                    gziped = true;
+            } else {
+                std::string session_cookie_string(SESSION_ID_NAME);
+                session_cookie_string.append("=")
+                        .append(random_string(req.client))
+                        .append(";Path=/;");
+                const char* host = evhttp_uri_get_host(ev_uri);
+                if (host) {
+                    session_cookie_string.append("Domain=").append(host);
                 }
+                evhttp_add_header(ev_output_headers, "Set-Cookie", session_cookie_string.c_str());
             }
+        }
+
+        if (item->app_t == pangpang::application_t::cpp) {
+            request_cpp_handler(item, req, res);
+        } else if (item->app_t == pangpang::application_t::php) {
+            request_php_handler(item, req, res);
+        } else {
+            res.content = std::move("<p style='text-align:center;margin:100px;'>501 Not Implemented</p>");
+            res.status = 501;
+            goto done;
+        }
+
+        bool gziped = false;
+        size_t content_len = res.content.size();
+        if (PANGPANG_CONFIG.ENABLE_GZIP && item->gzip && content_len >= PANGPANG_CONFIG.GZIP_MIN_SIZE && content_len <= PANGPANG_CONFIG.GZIP_MAX_SIZE) {
+            const char *gzip_header = evhttp_find_header(ev_input_headers, "Accept-Encoding");
+            if (gzip_header && strstr(gzip_header, "gzip") != NULL) {
+                res.headers.insert(std::move(std::make_pair("Content-Encoding", "gzip")));
+                res.content = std::move(gzip::compress(res.content.c_str(), content_len, PANGPANG_CONFIG.GZIP_LEVEL));
+                gziped = true;
+            }
+        }
 
 
 
-            for (auto&header : res.headers) {
-                evhttp_add_header(ev_output_headers, header.first.c_str(), header.second.c_str());
-            }
+        for (auto&header : res.headers) {
+            evhttp_add_header(ev_output_headers, header.first.c_str(), header.second.c_str());
+        }
 
-            if (item->cache) {
-                pangpang::cache_ele_t cache_new_ele;
-                if (gziped) {
-                    cache_new_ele.gzip = true;
-                }
-                cache_new_ele.content = res.content;
-                cache_new_ele.status = res.status;
-                cache_new_ele.content_type = res.headers.find("Content-Type")->second;
-                cache_new_ele.t = time(NULL);
-                item->cache->put(md5_key, cache_new_ele);
-                evhttp_add_header(ev_output_headers, "Last-Modified", hi::http_time(&cache_new_ele.t).c_str());
+        if (item->cache) {
+            pangpang::cache_ele_t cache_new_ele;
+            if (gziped) {
+                cache_new_ele.gzip = true;
             }
-            if (item->session && PANGPANG_CONFIG.ENABLE_SESSION&&!SESSION_ID_VALUE.empty()) {
-                PANGPANG_CONFIG.REDIS->hmset(SESSION_ID_VALUE, res.session);
-            }
+            cache_new_ele.content = res.content;
+            cache_new_ele.status = res.status;
+            cache_new_ele.content_type = res.headers.find("Content-Type")->second;
+            cache_new_ele.t = time(NULL);
+            item->cache->put(md5_key, cache_new_ele);
+            evhttp_add_header(ev_output_headers, "Last-Modified", hi::http_time(&cache_new_ele.t).c_str());
+        }
+        if (item->session && PANGPANG_CONFIG.ENABLE_SESSION&&!SESSION_ID_VALUE.empty()) {
+            PANGPANG_CONFIG.REDIS->hmset(SESSION_ID_VALUE, res.session);
         }
     } else if (PANGPANG_CONFIG.ENABLE_STATIC_SERVER) {
         std::string full_path = std::move(PANGPANG_CONFIG.ROOT + req.uri);
@@ -743,4 +762,91 @@ static inline void log(hi::request& req, hi::response& res) {
             res.status,
             res.content.size()
             ).c_str());
+}
+
+static inline void request_cpp_handler(std::shared_ptr<pangpang::route_ele_t>& rtt, hi::request& req, hi::response& res) {
+    auto instance = std::move(rtt->module->make_obj());
+    instance->handler(req, res);
+}
+
+static inline void request_php_handler(std::shared_ptr<pangpang::route_ele_t>& rtt, hi::request& req, hi::response& res) {
+    std::string script = std::move(PHP_DIRECTORY + req.uri);
+    if (is_file(script)) {
+        zend_first_try{
+            PANGPANG_CONFIG.PHP->include(script);
+
+
+            const char *request = "\\hi\\request", *response = "\\hi\\response";
+            if (php::getClassEntry(request) == NULL) {
+                res.content = fmt::format("<p style='text-align:center;margin:100px;'>{} Class Not Found</p>", request);
+                return;
+            }
+            if (php::getClassEntry(response) == NULL) {
+                res.content = fmt::format("<p style='text-align:center;margin:100px;'>{} Class Not Found</p>", response);
+                return;
+            }
+
+
+
+            auto php_req = php::newObject(request);
+
+
+
+            php_req.set("client", php::Variant(req.client));
+            php_req.set("method", php::Variant(req.method));
+            php_req.set("user_agent", php::Variant(req.user_agent));
+            php_req.set("param", php::Variant(req.param));
+            php_req.set("uri", php::Variant(req.uri));
+
+            php::Array php_req_headers, php_req_form, php_req_cookies, php_req_session;
+            for (auto & i : req.headers) {
+                php_req_headers.set(i.first.c_str(), php::Variant(i.second));
+            }
+            for (auto & i : req.form) {
+                php_req_form.set(i.first.c_str(), php::Variant(i.second));
+            }
+            for (auto & i : req.cookies) {
+                php_req_cookies.set(i.first.c_str(), php::Variant(i.second));
+            }
+            for (auto & i : req.session) {
+                php_req_session.set(i.first.c_str(), php::Variant(i.second));
+            }
+            php_req.set("headers", php_req_headers);
+            php_req.set("form", php_req_form);
+            php_req.set("cookies", php_req_cookies);
+            php_req.set("session", php_req_session);
+
+            auto php_res = php::newObject(response);
+
+
+            auto p = req.uri.find_last_of('/'), q = req.uri.find_last_of('.');
+
+            std::string class_name = std::move(req.uri.substr(p + 1, q - 1 - p));
+
+            auto servlet = php::newObject(class_name.c_str());
+
+            auto exec_statu = servlet.exec("handler", php_req, php_res);
+            if (!exec_statu.isBool()) {
+
+                php::Array res_headers = php_res.get("headers"), res_session = php_res.get("session");
+
+
+                for (auto i = res_headers.begin(); i != res_headers.end(); i++) {
+                    res.headers.insert(std::move(std::make_pair(i.key().toString(), i.value().toString())));
+                }
+                for (auto i = res_session.begin(); i != res_session.end(); i++) {
+                    res.session.insert(std::move(std::make_pair(i.key().toString(), i.value().toString())));
+                }
+
+
+
+                res.content = std::move(php_res.get("content").toString());
+
+                res.status = std::move(php_res.get("status")).toInt();
+            }} zend_catch{
+            res.content = fmt::format("<p style='text-align:center;margin:100px;'>{}</p>", "PHP Throw Exception");
+            res.status = 500;}zend_end_try();
+
+    }
+
 }
