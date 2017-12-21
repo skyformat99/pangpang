@@ -1,14 +1,15 @@
 PROJECT=bin/pangpang
 CPPSRC=$(shell find src -type f -name *.cpp)
-CCSRC+=$(shell find src -type f -name *.cc)
-CXXSRC+=$(shell find src -type f -name *.cxx)
+CCSRC=$(shell find src -type f -name *.cc)
+CXXSRC=$(shell find src -type f -name *.cxx)
 CPPOBJ=$(patsubst %.cpp,%.o,$(CPPSRC))
-CPPOBJ+=$(patsubst %.cc,%.o,$(CCSRC))
-CPPOBJ+=$(patsubst %.cxx,%.o,$(CXXSRC))
+CCOBJ=$(patsubst %.cc,%.o,$(CCSRC))
+CXXOBJ=$(patsubst %.cxx,%.o,$(CXXSRC))
+
 CSRC=$(shell find src -type f -name *.c)
 COBJ=$(patsubst %.c,%.o,$(CSRC))
-OBJ=$(CPPOBJ)
-OBJ+=$(COBJ)
+
+OBJ=$(COBJ) $(CXXOBJ) $(CCOBJ) $(CPPOBJ)
 
 CFLAGS=-std=c11 -O3 -Wall -Isrc/inc -Isrc/lib `php-config --includes`
 CXXFLAGS=-std=c++11 -O3 -Wall -Isrc/inc -Isrc/lib -Isrc/lib/MPFDParser-1.1.1 `pkg-config --cflags hiredis libevent_openssl openssl` `php-config --includes`
@@ -27,6 +28,11 @@ $(PROJECT):$(OBJ)
 .cpp.o:
 	g++ $(CXXFLAGS)  -c $^ -o $@
 
+.cc.o:
+	g++ $(CXXFLAGS)  -c $^ -o $@
+	
+.cxx.o:
+	g++ $(CXXFLAGS)  -c $^ -o $@
 
 clean:
 	@for i in $(OBJ);do echo "rm -f" $${i} && rm -f $${i} ;done
@@ -41,6 +47,8 @@ install:
 	test -d $(PREFIX)/conf || mkdir -p $(PREFIX)/conf
 	test -d $(PREFIX)/mod || mkdir -p $(PREFIX)/mod
 	test -d $(PREFIX)/temp || mkdir -p $(PREFIX)/temp
+	test -d $(PREFIX)/php || mkdir -p $(PREFIX)/php
+	cp php/*.php $(PREFIX)/php
 	cp src/inc/*.hpp $(PREFIX)/include
 	install bin/pangpang $(PREFIX)/bin
 	install --backup conf/pangpang.json $(PREFIX)/conf

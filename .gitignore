@@ -39,3 +39,5 @@
 /logs/pangpang.pid
 /html/nginx.html
 /logs/*.log
+/php/libs/
+/php/stmarty/

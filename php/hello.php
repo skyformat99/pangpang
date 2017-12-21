@@ -1,6 +1,6 @@
 <?php
 
-require_once 'servlet.php';
+require_once 'hi/servlet.php';
 
 class hello implements \hi\servlet {
 
