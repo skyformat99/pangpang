@@ -1,5 +1,5 @@
 # pangpang
-High performance web server and application server for c++
+High performance web server and application server for c++ and php
 
 ## wiki
 [wiki](https://github.com/webcpp/pangpang/wiki)
@@ -52,11 +52,118 @@ extern "C" void destroy(hi::servlet* p) {
 
 ```
 
-## cpp compile
+### cpp compile
 
 ```
 g++ -std=c++11 -I/usr/local/pangpang/include  -shared -fPIC hello.cpp -o hello.so
 install hello.so /usr/local/pangpang/mod
+
+```
+
+## php servlet class
+
+see `php/hi/request.php`,`php/hi/response.php` and `php/hi/servlet.php`
+
+```php
+
+<?php
+
+require_once 'hi/servlet.php';
+
+class hello implements \hi\servlet {
+
+    public function handler(\hi\request &$req, \hi\response &$res) {
+        $res->content = 'hello,world';
+        $res->status = 200;
+    }
+
+}
+
+```
+
+```txt
+
+Server Software:        pangpang/0.9.2
+Server Hostname:        localhost
+Server Port:            9000
+
+Document Path:          /hello.php
+Document Length:        11 bytes
+
+Concurrency Level:      1000
+Time taken for tests:   39.571 seconds
+Complete requests:      500000
+Failed requests:        0
+Write errors:           0
+Total transferred:      46500000 bytes
+HTML transferred:       5500000 bytes
+Requests per second:    12635.61 [#/sec] (mean)
+Time per request:       79.141 [ms] (mean)
+Time per request:       0.079 [ms] (mean, across all concurrent requests)
+Transfer rate:          1147.57 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0   30  10.2     30    1031
+Processing:     9   49   8.2     49     109
+Waiting:        0   39   8.8     41     102
+Total:         39   79  10.9     80    1092
+
+Percentage of the requests served within a certain time (ms)
+  50%     80
+  66%     81
+  75%     82
+  80%     82
+  90%     85
+  95%     89
+  98%     95
+  99%     99
+ 100%   1092 (longest request)
+
+
+```
+
+```txt
+
+Server Software:        pangpang/0.9.2
+Server Hostname:        localhost
+Server Port:            9000
+
+Document Path:          /hello.php
+Document Length:        11 bytes
+
+Concurrency Level:      1000
+Time taken for tests:   14.424 seconds
+Complete requests:      500000
+Failed requests:        0
+Write errors:           0
+Keep-Alive requests:    500000
+Total transferred:      68500000 bytes
+HTML transferred:       5500000 bytes
+Requests per second:    34665.27 [#/sec] (mean)
+Time per request:       28.847 [ms] (mean)
+Time per request:       0.029 [ms] (mean, across all concurrent requests)
+Transfer rate:          4637.83 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   1.5      0      43
+Processing:     0   29  32.5      8     137
+Waiting:        0   29  32.5      8     137
+Total:          0   29  32.6      8     137
+
+Percentage of the requests served within a certain time (ms)
+  50%      8
+  66%     62
+  75%     72
+  80%     73
+  90%     73
+  95%     75
+  98%     79
+  99%     84
+ 100%    137 (longest request)
+
+
 
 ```
 
