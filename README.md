@@ -172,6 +172,7 @@ Percentage of the requests served within a certain time (ms)
 - gcc,g++(c++11)
 - hiredis-devel
 - libevent-devel(2.0.21+,require 2.1.8+ if enable https )
+- PHP 7.0 or later(--enable-embed=shared)
 
 ## centos
 ```
