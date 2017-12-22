@@ -205,7 +205,7 @@ see `conf/pangpang.json` and `conf/pattern.conf`
     "multiprocess": {
         "enable": true,
         "cpu_affinity": true,
-        "size": 1
+        "size": 2
     },
     "host": "127.0.0.1",
     "port": 9000,
@@ -232,6 +232,7 @@ see `conf/pangpang.json` and `conf/pattern.conf`
     "log": true,
     "temp_directory": "temp",
     "route": [{
+            "application_type": "cpp",
             "pattern": "hello",
             "max_match_size": 0,
             "module": "mod/hello.so",
@@ -247,6 +248,7 @@ see `conf/pangpang.json` and `conf/pattern.conf`
             "log": false
         },
         {
+            "application_type": "cpp",
             "pattern": "form",
             "max_match_size": 30,
             "module": "mod/form.so",
@@ -262,6 +264,7 @@ see `conf/pangpang.json` and `conf/pattern.conf`
             "log": false
         },
         {
+            "application_type": "cpp",
             "pattern": "session",
             "max_match_size": 0,
             "module": "mod/session.so",
@@ -275,6 +278,22 @@ see `conf/pangpang.json` and `conf/pattern.conf`
             "cookie": true,
             "gzip": false,
             "log": true
+        },
+        {
+            "application_type": "php",
+            "pattern": "php",
+            "max_match_size": 30,
+            "module": "",
+            "cache": {
+                "enable": false,
+                "expires": 300,
+                "size": 30
+            },
+            "session": false,
+            "header": false,
+            "cookie": false,
+            "gzip": false,
+            "log": false
         }
     ],
     "static_server": {
@@ -331,6 +350,7 @@ see `conf/pangpang.json` and `conf/pattern.conf`
         ]
     }
 }
+
 
 ```
 ### Route pattern configure
