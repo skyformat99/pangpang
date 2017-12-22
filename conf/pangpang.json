@@ -87,9 +87,9 @@
                 "expires": 300,
                 "size": 30
             },
-            "session": false,
+            "session": true,
             "header": false,
-            "cookie": false,
+            "cookie": true,
             "gzip": false,
             "log": false
         }

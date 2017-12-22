@@ -289,9 +289,9 @@ see `conf/pangpang.json` and `conf/pattern.conf`
                 "expires": 300,
                 "size": 30
             },
-            "session": false,
+            "session": true,
             "header": false,
-            "cookie": false,
+            "cookie": true,
             "gzip": false,
             "log": false
         }
@@ -356,8 +356,8 @@ see `conf/pangpang.json` and `conf/pattern.conf`
 ### Route pattern configure
 ```
 hello       =       ^/hello/?([0-9a-z]?)?$
-form        =       /form/?([0-9a-z]+)?$
-session     =       /session
+form        =       ^/form/?([0-9a-z]+)?$
+session     =       ^/session$
 php         =       \.php$
 
 ```

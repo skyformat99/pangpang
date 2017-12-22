@@ -9,9 +9,9 @@ class session implements \hi\servlet {
         $val = 0;
         if (array_key_exists($key, $req->session)) {
             $val = (int) $req->session[$key];
-            $req->session[$key] = $val + 1;
+            $res->session[$key] = $val + 1;
         } else {
-            $req->session[$key] = $val;
+            $res->session[$key] = $val;
         }
         $res->content = 'hello,' . $val;
         $res->status = 200;
