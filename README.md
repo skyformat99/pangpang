@@ -356,8 +356,9 @@ see `conf/pangpang.json` and `conf/pattern.conf`
 ### Route pattern configure
 ```
 hello       =       ^/hello/?([0-9a-z]?)?$
-form        =       /form
+form        =       /form/?([0-9a-z]+)?$
 session     =       /session
+php         =       \.php$
 
 ```
 
