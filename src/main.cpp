@@ -182,7 +182,7 @@ static inline bool initailize_config(const std::string& path) {
                         } else if (app_t == "php") {
                             tmp->app_t = pangpang::application_t::php;
                             int argc = 1;
-                            char *argv[2] = {"pangpang", NULL};
+                            char *argv[2] = {"", NULL};
                             PANGPANG_CONFIG.PHP = std::move(std::make_shared<php::VM>(argc, argv));
                         } else {
                             tmp->app_t = pangpang::application_t::unkown;
@@ -773,9 +773,9 @@ static inline void request_cpp_handler(std::shared_ptr<pangpang::route_ele_t>& r
 static inline void request_php_handler(std::shared_ptr<pangpang::route_ele_t>& rtt, hi::request& req, hi::response& res) {
     std::string script = std::move(PHP_DIRECTORY + req.uri);
     if (is_file(script)) {
-        zend_first_try{
+        zend_first_try
+                {
             PANGPANG_CONFIG.PHP->include(script.c_str());
-
             const char *request = "\\hi\\request", *response = "\\hi\\response", *handler = "handler";
             if (php::getClassEntry(request) != NULL && php::getClassEntry(response) != NULL) {
                 auto php_req = php::newObject(request);
@@ -839,8 +839,9 @@ static inline void request_php_handler(std::shared_ptr<pangpang::route_ele_t>& r
                     res.content = std::move(php_res.get("content").toString());
 
                     res.status = std::move(php_res.get("status")).toInt();
+                    return;
                 }
-            }} zend_catch{
+            }}zend_catch{
             res.content = std::move(fmt::format("<p style='text-align:center;margin:100px;'>{}</p>", "PHP Throw Exception"));
             res.status = 500;}zend_end_try();
     }

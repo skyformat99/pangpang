@@ -14,56 +14,53 @@
   +----------------------------------------------------------------------+
   | Author: Tianfeng Han  <mikan.tenny@gmail.com>                        |
   +----------------------------------------------------------------------+
-*/
+ */
 
 #pragma once
 
-extern "C"
-{
-#include "sapi/embed/php_embed.h"
+extern "C" {
+#include <php/sapi/embed/php_embed.h>
 }
 
 #include "phpx.h"
 
-namespace php
-{
-class VM
-{
-public:
-    VM(int argc, char ** argv)
-    {
-        php_embed_init(argc, argv);
-        exit_status = 0;
-        program_name = argv[0];
-    }
-    ~VM()
-    {
-        php_embed_shutdown();
-    }
-    void eval(const char *script)
-    {
-        string s(script);
-        eval(s);
-    }
-    void eval(string &script)
-    {
-        zend_first_try
-        {
-            zend_eval_stringl((char *) script.c_str(), script.length(), NULL, (char *) program_name.c_str());
+namespace php {
+
+    class VM {
+    public:
+
+        VM(int argc, char ** argv) {
+            php_embed_init(argc, argv);
+            exit_status = 0;
+            program_name = argv[0];
         }
-        zend_catch
-        {
-            exit_status = EG(exit_status);
+
+        ~VM() {
+            php_embed_shutdown();
         }
-        zend_end_try();
-    }
-    inline Variant include(string file)
-    {
-        return php::include(file);
-    }
-    int exit_status;
-private:
-    string program_name;
-};
+
+        void eval(const char *script) {
+            string s(script);
+            eval(s);
+        }
+
+        void eval(string &script) {
+            zend_first_try
+                    {
+                zend_eval_stringl((char *) script.c_str(), script.length(), NULL, (char *) program_name.c_str());}
+            zend_catch
+                    {
+                exit_status = EG(exit_status);}
+            zend_end_try();
+        }
+
+        inline Variant include(string file) {
+            return php::include(file);
+        }
+
+        int exit_status;
+    private:
+        string program_name;
+    };
 }
 

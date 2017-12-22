@@ -47,12 +47,12 @@ install:
 	test -d $(PREFIX)/conf || mkdir -p $(PREFIX)/conf
 	test -d $(PREFIX)/mod || mkdir -p $(PREFIX)/mod
 	test -d $(PREFIX)/temp || mkdir -p $(PREFIX)/temp
-	test -d $(PREFIX)/php || mkdir -p $(PREFIX)/php
-	cp php/*.php $(PREFIX)/php
+	cp -R php $(PREFIX)/
 	cp src/inc/*.hpp $(PREFIX)/include
 	install bin/pangpang $(PREFIX)/bin
 	install --backup conf/pangpang.json $(PREFIX)/conf
 	install --backup conf/pattern.conf $(PREFIX)/conf
 	install --backup conf/zlog.conf $(PREFIX)/conf
 	install --backup html/index.html $(PREFIX)/html
+	install html/phpdemo.html $(PREFIX)/html
 	cp systemctl/pangpang.service /etc/systemd/system
