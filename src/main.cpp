@@ -687,7 +687,7 @@ static inline void forker(size_t nprocesses, struct event_base* base) {
             perror("fork");
         } else if (pid == 0) {
             //Child
-            event_reinit(BASE);
+            event_reinit(base);
             ++t;
             worker();
             stoper();
