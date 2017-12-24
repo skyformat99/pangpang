@@ -505,7 +505,7 @@ static inline void generic_request_handler(struct evhttp_request *ev_req, void *
                 evhttp_add_header(ev_output_headers, header.first.c_str(), header.second.c_str());
             }
 
-            if (item->cache) {
+            if (res.status == 200 && item->cache) {
                 pangpang::cache_ele_t cache_new_ele;
                 if (gziped) {
                     cache_new_ele.gzip = true;
