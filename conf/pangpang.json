@@ -88,7 +88,7 @@
                 "size": 30
             },
             "session": true,
-            "header": false,
+            "header": true,
             "cookie": true,
             "gzip": false,
             "log": false
