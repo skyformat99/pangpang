@@ -777,8 +777,10 @@ static inline void request_php_handler(std::shared_ptr<pangpang::route_ele_t>& r
                 {
             PANGPANG_CONFIG.PHP->include(script.c_str());
             const char *request = "\\hi\\request", *response = "\\hi\\response", *handler = "handler";
-            if (php::getClassEntry(request) != NULL && php::getClassEntry(response) != NULL) {
-                auto php_req = php::newObject(request);
+            php::Object php_req = php::newObject(request), php_res = php::newObject(response);
+
+            if (!php_req.isNull() && !php_res.isNull()) {
+
                 php_req.set("client", php::Variant(req.client));
                 php_req.set("method", php::Variant(req.method));
                 php_req.set("user_agent", php::Variant(req.user_agent));
@@ -803,7 +805,7 @@ static inline void request_php_handler(std::shared_ptr<pangpang::route_ele_t>& r
                 php_req.set("cookies", php_req_cookies);
                 php_req.set("session", php_req_session);
 
-                auto php_res = php::newObject(response);
+
 
 
                 auto p = req.uri.find_last_of('/'), q = req.uri.find_last_of('.');
@@ -811,10 +813,10 @@ static inline void request_php_handler(std::shared_ptr<pangpang::route_ele_t>& r
                 std::string class_name = std::move(req.uri.substr(p + 1, q - 1 - p));
 
 
-                php::Object servlet(php::newObject(class_name.c_str()));
+                php::Object servlet = php::newObject(class_name.c_str());
 
 
-                if (servlet.methodExists(handler)) {
+                if (!servlet.isNull() && servlet.methodExists(handler)) {
                     servlet.exec(handler, php_req, php_res);
                     php::Array res_headers = php_res.get("headers"), res_session = php_res.get("session");
 
