@@ -87,7 +87,7 @@ namespace pangpang {
     };
 
     enum application_t {
-        cpp, php, unkown
+        __cpp__, __php__, __unkown__
     };
 
     struct route_ele_t {

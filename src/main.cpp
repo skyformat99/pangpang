@@ -178,14 +178,14 @@ static inline bool initailize_config(const std::string& path) {
                         if (tmp->session&&!tmp->cookie)tmp->cookie = true;
                         std::string app_t = item["application_type"].string_value();
                         if (app_t == "cpp") {
-                            tmp->app_t = pangpang::application_t::cpp;
+                            tmp->app_t = pangpang::application_t::__cpp__;
                         } else if (app_t == "php") {
-                            tmp->app_t = pangpang::application_t::php;
+                            tmp->app_t = pangpang::application_t::__php__;
                             int argc = 1;
                             char *argv[2] = {"", NULL};
                             PANGPANG_CONFIG.PHP = std::move(std::make_shared<php::VM>(argc, argv));
                         } else {
-                            tmp->app_t = pangpang::application_t::unkown;
+                            tmp->app_t = pangpang::application_t::__unkown__;
                         }
                         PANGPANG_CONFIG.PLUGIN.push_back(std::move(tmp));
                     }
@@ -497,9 +497,9 @@ static inline void generic_request_handler(struct evhttp_request *ev_req, void *
             }
         }
 
-        if (item->app_t == pangpang::application_t::cpp) {
+        if (item->app_t == pangpang::application_t::__cpp__) {
             request_cpp_handler(item, req, res);
-        } else if (item->app_t == pangpang::application_t::php) {
+        } else if (item->app_t == pangpang::application_t::__php__) {
             request_php_handler(item, req, res);
         } else {
             res.content = std::move("<p style='text-align:center;margin:100px;'>501 Not Implemented</p>");
@@ -680,42 +680,82 @@ static inline std::string random_string(const std::string& s) {
 }
 
 static inline void forker(size_t nprocesses, struct event_base* base) {
-    static size_t t = 0;
-    if (nprocesses > 0) {
+    pid_t parent = getpid();
+    size_t running = 0;
+    do {
         pid_t pid = fork();
-        if (pid < 0) {
-            perror("fork");
-        } else if (pid == 0) {
-            //Child
-            event_reinit(base);
-            ++t;
-            worker();
-            stoper();
-            raise(SIGHUP);
-        } else if (pid > 0) {
-            //parent 
-            PANGPANG_CONFIG.PIDS.push_back(pid);
-            if (t != nprocesses - 1) {
-                forker(nprocesses - 1, base);
-            } else {
-                int status;
-                pid_t ppid = getpid();
-                PANGPANG_CONFIG.PIDS.push_back(ppid);
-                waitpid(-ppid, &status, WNOHANG);
-                if (PANGPANG_CONFIG.CPU_AFFINITY) {
-                    size_t cpu_size = get_cpu_count();
-                    for (size_t i = 0; i < cpu_size; ++i) {
-                        if (i <= PANGPANG_CONFIG.PIDS.size() - 1) {
-                            process_bind_cpu(PANGPANG_CONFIG.PIDS[i], i);
-                        }
-                    }
-                }
+        switch (pid) {
+            case 0:
+                parent = 0; // 将子进程中的父进程标识改为0，防止循环 fork
+                event_reinit(base);
                 worker();
-                killpg(ppid, SIGHUP);
+                stoper();
+                raise(SIGHUP);
+
+                break;
+            case -1:
+                perror("(pre-forking)");
+                exit(1);
+                break;
+            default:
+                /* Fine */
+                running++;
+                break;
+        }
+    } while (parent && (running < nprocesses));
+    int status;
+    pid_t ppid = getpid();
+    PANGPANG_CONFIG.PIDS.push_back(ppid);
+    waitpid(-ppid, &status, WNOHANG);
+    if (PANGPANG_CONFIG.CPU_AFFINITY) {
+        size_t cpu_size = get_cpu_count();
+        for (size_t i = 0; i < cpu_size; ++i) {
+            if (i <= PANGPANG_CONFIG.PIDS.size() - 1) {
+                process_bind_cpu(PANGPANG_CONFIG.PIDS[i], i);
             }
         }
     }
+    worker();
+    killpg(ppid, SIGHUP);
 }
+
+//static inline void forker(size_t nprocesses, struct event_base* base) {
+//    static size_t t = 0;
+//    if (nprocesses > 0) {
+//        pid_t pid = fork();
+//        if (pid < 0) {
+//            perror("fork");
+//        } else if (pid == 0) {
+//            //Child
+//            event_reinit(base);
+//            ++t;
+//            worker();
+//            stoper();
+//            raise(SIGHUP);
+//        } else if (pid > 0) {
+//            //parent 
+//            PANGPANG_CONFIG.PIDS.push_back(pid);
+//            if (t != nprocesses - 1) {
+//                forker(nprocesses - 1, base);
+//            } else {
+//                int status;
+//                pid_t ppid = getpid();
+//                PANGPANG_CONFIG.PIDS.push_back(ppid);
+//                waitpid(-ppid, &status, WNOHANG);
+//                if (PANGPANG_CONFIG.CPU_AFFINITY) {
+//                    size_t cpu_size = get_cpu_count();
+//                    for (size_t i = 0; i < cpu_size; ++i) {
+//                        if (i <= PANGPANG_CONFIG.PIDS.size() - 1) {
+//                            process_bind_cpu(PANGPANG_CONFIG.PIDS[i], i);
+//                        }
+//                    }
+//                }
+//                worker();
+//                killpg(ppid, SIGHUP);
+//            }
+//        }
+//    }
+//}
 
 static inline void worker() {
     event_base_dispatch(BASE);
