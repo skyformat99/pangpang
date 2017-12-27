@@ -662,42 +662,82 @@ static inline std::string random_string(const std::string& s) {
 }
 
 static inline void forker(size_t nprocesses, struct event_base* base) {
-    static size_t t = 0;
-    if (nprocesses > 0) {
+    pid_t parent = getpid();
+    size_t running = 0;
+    do {
         pid_t pid = fork();
-        if (pid < 0) {
-            perror("fork");
-        } else if (pid == 0) {
-            //Child
-            event_reinit(base);
-            ++t;
-            worker();
-            stoper();
-            raise(SIGHUP);
-        } else if (pid > 0) {
-            //parent 
-            PANGPANG_CONFIG.PIDS.push_back(pid);
-            if (t != nprocesses - 1) {
-                forker(nprocesses - 1, base);
-            } else {
-                int status;
-                pid_t ppid = getpid();
-                PANGPANG_CONFIG.PIDS.push_back(ppid);
-                waitpid(-ppid, &status, WNOHANG);
-                if (PANGPANG_CONFIG.CPU_AFFINITY) {
-                    size_t cpu_size = get_cpu_count();
-                    for (size_t i = 0; i < cpu_size; ++i) {
-                        if (i <= PANGPANG_CONFIG.PIDS.size() - 1) {
-                            process_bind_cpu(PANGPANG_CONFIG.PIDS[i], i);
-                        }
-                    }
-                }
+        switch (pid) {
+            case 0:
+                parent = 0; // 将子进程中的父进程标识改为0，防止循环 fork
+                event_reinit(base);
                 worker();
-                killpg(ppid, SIGHUP);
+                stoper();
+                raise(SIGHUP);
+
+                break;
+            case -1:
+                perror("(pre-forking)");
+                exit(1);
+                break;
+            default:
+                /* Fine */
+                running++;
+                break;
+        }
+    } while (parent && (running < nprocesses));
+    int status;
+    pid_t ppid = getpid();
+    PANGPANG_CONFIG.PIDS.push_back(ppid);
+    waitpid(-ppid, &status, WNOHANG);
+    if (PANGPANG_CONFIG.CPU_AFFINITY) {
+        size_t cpu_size = get_cpu_count();
+        for (size_t i = 0; i < cpu_size; ++i) {
+            if (i <= PANGPANG_CONFIG.PIDS.size() - 1) {
+                process_bind_cpu(PANGPANG_CONFIG.PIDS[i], i);
             }
         }
     }
+    worker();
+    killpg(ppid, SIGHUP);
 }
+
+//static inline void forker(size_t nprocesses, struct event_base* base) {
+//    static size_t t = 0;
+//    if (nprocesses > 0) {
+//        pid_t pid = fork();
+//        if (pid < 0) {
+//            perror("fork");
+//        } else if (pid == 0) {
+//            //Child
+//            event_reinit(base);
+//            ++t;
+//            worker();
+//            stoper();
+//            raise(SIGHUP);
+//        } else if (pid > 0) {
+//            //parent 
+//            PANGPANG_CONFIG.PIDS.push_back(pid);
+//            if (t != nprocesses - 1) {
+//                forker(nprocesses - 1, base);
+//            } else {
+//                int status;
+//                pid_t ppid = getpid();
+//                PANGPANG_CONFIG.PIDS.push_back(ppid);
+//                waitpid(-ppid, &status, WNOHANG);
+//                if (PANGPANG_CONFIG.CPU_AFFINITY) {
+//                    size_t cpu_size = get_cpu_count();
+//                    for (size_t i = 0; i < cpu_size; ++i) {
+//                        if (i <= PANGPANG_CONFIG.PIDS.size() - 1) {
+//                            process_bind_cpu(PANGPANG_CONFIG.PIDS[i], i);
+//                        }
+//                    }
+//                }
+//                worker();
+//                killpg(ppid, SIGHUP);
+//            }
+//        }
+//    }
+//}
 
 static inline void worker() {
     event_base_dispatch(BASE);
